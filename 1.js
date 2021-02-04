@@ -5,20 +5,20 @@ const seeinert = 0.1;
 
 const basex2d = c_width - 110;
 const basey2d = 110;
-const rad2d = 100;
 const basex3d = c_width/2;
 const basey3d = c_height/2;
+const rad2d = 100;
 
-const prad2d = 10;
-const prad3d = 10;
 const w2d = 15 * Math.cos(Math.PI / 4);
 const h2d = 15 * Math.sin(Math.PI / 4);
 const w3d = 50 * Math.cos(Math.PI / 6);
 const h3d = 50 * Math.sin(Math.PI / 6);
+const player_rad = 0.2;
+const player_height = 0.2;
+const prad2d = 10;
+const prad3d = 50 * player_rad;
 
 const usekey = ['w', 'a', 's', 'd', ' '];
-
-const player_rad = 10;
 
 let data;
 let width, height;
@@ -115,13 +115,40 @@ function show() {
     // 입체
     setContext(2);
 
-    for (let i = 0; i < height; i++) {
-        for (let j = 0; j < width; j++) {
-            if (data[i][j] == 0) continue;
+    function showPlayer() {
+        let px3d = height - player.y + player.x;
+        let py3d = - width - height + player.y + player.x - 2 * player.z;
+        let ply3d = - width - height + player.y + player.x - 2 * (player.z - player_height);
+        let phy3d = - width - height + player.y + player.x - 2 * (player.z + player_height);
+        let ky3d = - width - height + player.y + player.x - 2 * data[0 | player.y][0 | player.x];
 
-            let x = height - i + j;
-            let y = - width - height + i + j;
-            let d = data[i][j];
+        // 그림자
+        ctx.beginPath();
+        ctx.fillStyle = "#00000044";
+        ctx.arc(px3d * w3d, ky3d * h3d, prad3d, 0, 2 * Math.PI);
+        ctx.fill();
+
+        // 플레이어
+        ctx.beginPath();
+        ctx.fillStyle = "#00ffff";
+        ctx.arc(px3d * w3d, py3d * h3d, prad3d, 0, 2 * Math.PI);
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.moveTo(px3d * w3d, py3d * h3d);
+        ctx.lineTo(px3d * w3d + prad3d * Math.cos(player.th + Math.PI / 4),
+            py3d * h3d + prad3d * Math.sin(player.th + Math.PI / 4));
+        ctx.stroke();
+    }
+
+    let player_i = (0|player.x) + (0|player.y);
+    for (let i = 0; i < width + height; i++) {
+        for (let j = i < height ? 0 : i - height + 1; j < (i < width ? i + 1 : width); j++) {
+            if (data[i-j][j] == 0) continue;
+
+            let x = height - (i - j) + j;
+            let y = - width - height + (i-j) + j;
+            let d = data[i-j][j];
 
             // 위
             ctx.fillStyle = "#cccccc";
@@ -156,29 +183,10 @@ function show() {
             ctx.fill();
             ctx.stroke();
         }
+        
+        if (player_i == i)
+            showPlayer();
     }
-
-    let px3d = height - player.y + player.x;
-    let py3d = - width - height + player.y + player.x - 2 * player.z;
-    let ky3d = - width - height + player.y + player.x - 2 * data[0|player.y][0|player.x];
-
-    // 그림자
-    ctx.beginPath();
-    ctx.fillStyle = "#000000aa";
-    ctx.arc(px3d * w3d, ky3d * h3d, prad3d, 0, 2 * Math.PI);
-    ctx.fill();
-
-    // 플레이어
-    ctx.beginPath();
-    ctx.fillStyle = "#00ffff";
-    ctx.arc(px3d * w3d, py3d * h3d, prad3d, 0, 2 * Math.PI);
-    ctx.fill();
-
-    ctx.beginPath();
-    ctx.moveTo(px3d * w3d, py3d * h3d);
-    ctx.lineTo(px3d * w3d + prad3d * Math.cos(player.th + Math.PI / 4),
-        py3d * h3d + prad3d * Math.sin(player.th + Math.PI / 4));
-    ctx.stroke();
 
     // 평면
     setContext(1);
@@ -312,24 +320,24 @@ function proc() {
     dx = limiter(dx, -1, 1);
     dy = limiter(dy, -1, 1);
 
-    for (ind = 0; (ind <= xycheck) && ((0 | player.x - ind) > 0); ind++)
+    for (ind = 0; (ind < xycheck) && ((0 | player.x - ind) > 0); ind++)
         if (player.z < data[0 | player.y][0 | player.x - ind - 1])
             break;
-    min = 0 | player.x - ind;
-    for (ind = 0; (ind <= xycheck) && ((0 | player.x + ind + 1) < width); ind++)
+    min = limiter((0 | player.x - ind) + player_rad, 0, width - 0.01);
+    for (ind = 0; (ind < xycheck) && ((0 | player.x + ind + 1) < width); ind++)
         if (player.z < data[0 | player.y][0 | player.x + ind + 1])
             break;
-    max = (0 | player.x + ind + 1) - 0.01;
+    max = limiter((0 | player.x + ind + 1) - player_rad, 0, width - 0.01);
     player.x = limiter(player.x + p_move * dx, min, max);
 
-    for (ind = 0; (ind <= xycheck) && ((0 | player.y - ind) > 0); ind++)
+    for (ind = 0; (ind < xycheck) && ((0 | player.y - ind) > 0); ind++)
         if (player.z < data[0 | player.y - ind - 1][0 | player.x])
             break;
-    min = 0 | player.y - ind;
-    for (ind = 0; (ind <= xycheck) && ((0 | player.y + ind + 1) < height); ind++)
+    min = limiter((0 | player.y - ind) + player_rad, 0, height - 0.01);
+    for (ind = 0; (ind < xycheck) && ((0 | player.y + ind + 1) < height); ind++)
         if (player.z < data[0 | player.y + ind + 1][0 | player.x])
             break;
-    max = (0 | player.y + ind + 1) - 0.01;
+    max = limiter((0 | player.y + ind + 1) - player_rad, 0, height - 0.01);
     player.y = limiter(player.y + p_move * dy, min, max);
 
     if (dx || dy) player.th = Math.PI * ((dx == 1 && dy == 0) ? 0 : dy * (-dx - 2) + 4) / 4;
@@ -342,8 +350,8 @@ function proc() {
         player.zv -= 0.1;
     }
 
-    if (player.z < data[0 | player.y][0 | player.x]) {
-        player.z = data[0 | player.y][0 | player.x];
+    if (player.z < data[0 | player.y][0 | player.x] + player_height) {
+        player.z = data[0 | player.y][0 | player.x] + player_height;
         player.zv = 0;
     }
 
