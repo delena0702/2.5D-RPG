@@ -1,7 +1,7 @@
 let ctx;
 const c_width = 500;
 const c_height = 700;
-const seeinert = 0.1;
+const see_inert = 0.1;
 
 const basex2d = c_width - 110;
 const basey2d = 110;
@@ -15,8 +15,11 @@ const w3d = 50 * Math.cos(Math.PI / 6);
 const h3d = 50 * Math.sin(Math.PI / 6);
 const player_rad = 0.2;
 const player_height = 0.2;
-const prad2d = 10;
+const prad2d = 8;
 const prad3d = 50 * player_rad;
+
+const p_move = 0.15;
+const xycheck = 1;
 
 const usekey = ['w', 'a', 's', 'd', ' '];
 
@@ -91,9 +94,14 @@ function setContext(mode) {
     }
 }
 
+/**
+ * 높이 차이(num)에 따른 맵 색 반환
+ * @param {number} num 높이 차이
+ */
 function makeColor(num) {
+    num += player_height;
     const max_num = 8;
-    const min_color = 32;
+    const min_color = 64;
 
     let r = "#";
     let a = 255 - (255 - min_color) * Math.abs(num) / max_num;
@@ -103,6 +111,31 @@ function makeColor(num) {
     if (num >= 0)
         return '#' + a + a + 'ff';
     return '#ff' + a + a;
+}
+
+function drawPlayer()
+{
+    ctx.save();
+    ctx.strokeStyle = "#000000";
+    ctx.lineWidth = 2;
+
+    ctx.beginPath();
+    for (let i = 0; i <= 6; i += 0.1) {
+        let x = height
+            + (player.x + player_rad * Math.cos((i - player.th - 0.25) * Math.PI))
+            - (player.y + player_rad * Math.sin((i - player.th - 0.25) * Math.PI));
+        let y = - width - height
+            + (player.x + player_rad * Math.cos((i - player.th - 0.25) * Math.PI))
+            + (player.y + player_rad * Math.sin((i - player.th - 0.25) * Math.PI))
+            - 2 * (player.z + (i / 3 - 1) * player_height);
+
+        if (i) ctx.lineTo(x * w3d, y * h3d);
+        else ctx.moveTo(x * w3d, y * h3d);
+    }
+    ctx.stroke();
+
+    ctx.restore();
+
 }
 
 /**
@@ -117,31 +150,25 @@ function show() {
 
     function showPlayer() {
         let px3d = height - player.y + player.x;
-        let py3d = - width - height + player.y + player.x - 2 * player.z;
-        let ply3d = - width - height + player.y + player.x - 2 * (player.z - player_height);
-        let phy3d = - width - height + player.y + player.x - 2 * (player.z + player_height);
+        // let py3d = - width - height + player.y + player.x - 2 * player.z;
+        // let ply3d = - width - height + player.y + player.x - 2 * (player.z - player_height);
+        // let phy3d = - width - height + player.y + player.x - 2 * (player.z + player_height);
         let ky3d = - width - height + player.y + player.x - 2 * data[0 | player.y][0 | player.x];
 
         // 그림자
+        ctx.save();
         ctx.beginPath();
         ctx.fillStyle = "#00000044";
         ctx.arc(px3d * w3d, ky3d * h3d, prad3d, 0, 2 * Math.PI);
         ctx.fill();
+        ctx.restore();
 
-        // 플레이어
-        ctx.beginPath();
-        ctx.fillStyle = "#00ffff";
-        ctx.arc(px3d * w3d, py3d * h3d, prad3d, 0, 2 * Math.PI);
-        ctx.fill();
-
-        ctx.beginPath();
-        ctx.moveTo(px3d * w3d, py3d * h3d);
-        ctx.lineTo(px3d * w3d + prad3d * Math.cos(player.th + Math.PI / 4),
-            py3d * h3d + prad3d * Math.sin(player.th + Math.PI / 4));
-        ctx.stroke();
+        drawPlayer();
     }
 
     let player_i = (0|player.x) + (0|player.y);
+    let player_dia = 0|player.x - player.y;
+    let check = false;
     for (let i = 0; i < width + height; i++) {
         for (let j = i < height ? 0 : i - height + 1; j < (i < width ? i + 1 : width); j++) {
             if (data[i-j][j] == 0) continue;
@@ -149,6 +176,13 @@ function show() {
             let x = height - (i - j) + j;
             let y = - width - height + (i-j) + j;
             let d = data[i-j][j];
+
+            // 플레이어 출력 체크
+            if (check && player.z < d && 
+                (player_dia >= 2 * j - i - 2 && player_dia <= 2 * j - i + 1)) {
+                showPlayer();
+                check = false;
+            }
 
             // 위
             ctx.fillStyle = "#cccccc";
@@ -184,9 +218,10 @@ function show() {
             ctx.stroke();
         }
         
-        if (player_i == i)
-            showPlayer();
+        if (player_i == i) check = true;
     }
+
+    if (check) showPlayer();
 
     // 평면
     setContext(1);
@@ -258,7 +293,7 @@ function initData() {
         [29, 30, 31, 32, 33, 34, 35, 36, 19, 2],
         [28, 27, 26, 25, 24, 23, 22, 21, 20, 1],
     ];
-    /**/
+    /**
     data = [
         [1, 1, 1, 1, 1, 1, 1, 1, 3, 2],
         [1, 1, 1, 1, 1, 1, 1, 1, 3, 1],
@@ -302,12 +337,10 @@ function limiter(x, min, max) {
 }
 
 /**
- * 매 프레임마다 실행되는 함수
+ * 플레이어 위치 조절
  */
-function proc() {
-    const p_move = 0.15;
-    const xycheck = 1;
-
+function movePlayer()
+{
     let dx = 0, dy = 0;
     let min, max;
     let ind;
@@ -355,7 +388,7 @@ function proc() {
         player.zv = 0;
     }
 
-    if (player.z <= 0) {
+    if (player.z <= player_height) {
         console.log("떨어짐");
         player.x = width - 0.5;
         player.y = height - 0.5;
@@ -363,10 +396,23 @@ function proc() {
         player.th = - Math.PI / 4;
         player.zv = 0;
     }
+}
 
+/**
+ * 시야 위치 조절
+ */
+function moveSee()
+{
     for (let i in see)
-        see[i] = (1-seeinert)*see[i] + seeinert*player[i];
+        see[i] = (1-see_inert)*see[i] + see_inert*player[i];
+}
 
+/**
+ * 매 프레임마다 실행되는 함수
+ */
+function proc() {
+    movePlayer();
+    moveSee();
     show();
 
     return;
