@@ -5,9 +5,10 @@ const see_inert = 0.1;
 
 const basex2d = c_width - 110;
 const basey2d = 110;
-const basex3d = c_width/2;
-const basey3d = c_height/2;
+const basex3d = c_width / 2;
+const basey3d = c_height / 2;
 const rad2d = 100;
+const pheadrad3d = 12;
 
 const w2d = 15 * Math.cos(Math.PI / 4);
 const h2d = 15 * Math.sin(Math.PI / 4);
@@ -28,6 +29,7 @@ let width, height;
 let player;
 let see;
 let keystat = {};
+let display = {};
 
 window.onload = () => {
     let output = document.getElementById('output');
@@ -58,7 +60,7 @@ function setContext(mode) {
         case 1:
             var tx = basex2d - (height + player.x - player.y) * w2d;
             var ty = basey2d - (- width - height + player.x + player.y) * h2d;
-            
+
             ctx.save();
             ctx.lineWidth = 3;
 
@@ -68,7 +70,7 @@ function setContext(mode) {
             ctx.clip();
 
             ctx.fillStyle = "#444444aa";
-            ctx.fillRect(basex2d-rad2d, basey2d-rad2d, 2*rad2d, 2*rad2d);
+            ctx.fillRect(basex2d - rad2d, basey2d - rad2d, 2 * rad2d, 2 * rad2d);
 
             ctx.translate(tx, ty);
 
@@ -79,7 +81,7 @@ function setContext(mode) {
 
         case 2:
             var tx = basex3d - (height + see.x - see.y) * w3d;
-            var ty = basey3d - ( - width - height + see.y + see.x - 2 * see.z) * h3d;
+            var ty = basey3d - (- width - height + see.y + see.x - 2 * see.z) * h3d;
 
             ctx.translate(tx, ty);
 
@@ -113,8 +115,7 @@ function makeColor(num) {
     return '#ff' + a + a;
 }
 
-function drawPlayer()
-{
+function drawPlayer() {
     ctx.save();
     ctx.strokeStyle = "#000000";
     ctx.lineWidth = 2;
@@ -122,17 +123,42 @@ function drawPlayer()
     ctx.beginPath();
     for (let i = 0; i <= 6; i += 0.1) {
         let x = height
-            + (player.x + player_rad * Math.cos((i - player.th - 0.25) * Math.PI))
-            - (player.y + player_rad * Math.sin((i - player.th - 0.25) * Math.PI));
+            + (player.x + player_rad * Math.cos(i * Math.PI - player.th))
+            - (player.y + player_rad * Math.sin(i * Math.PI - player.th));
         let y = - width - height
-            + (player.x + player_rad * Math.cos((i - player.th - 0.25) * Math.PI))
-            + (player.y + player_rad * Math.sin((i - player.th - 0.25) * Math.PI))
-            - 2 * (player.z + (i / 3 - 1) * player_height);
+            + (player.x + player_rad * Math.cos(i * Math.PI - player.th))
+            + (player.y + player_rad * Math.sin(i * Math.PI - player.th))
+            - 2 * (player.z + (i * display.player_k - 1) * player_height);
 
         if (i) ctx.lineTo(x * w3d, y * h3d);
         else ctx.moveTo(x * w3d, y * h3d);
     }
     ctx.stroke();
+
+    let x = height + (player.x) - (player.y);
+    let y = - width - height + (player.x) + (player.y)
+        - 2 * ((8 * display.player_k - 1) * player_height + player.z);
+
+    ctx.strokeStyle = "#444444";
+    ctx.fillStyle = "#ffffff";
+    ctx.beginPath();
+    ctx.arc(x * w3d, y * h3d, 12, 0, 2 * Math.PI);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    if (Math.cos(player.th - Math.PI / 4) >= -0.01) {
+        ctx.fillStyle = "#000000";
+        ctx.beginPath();
+        ctx.arc(x * w3d + 11 * Math.cos(player.th + (0.25 + 0.15) * Math.PI), y * h3d, 2, 0, 2 * Math.PI);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.arc(x * w3d + 11 * Math.cos(player.th + (0.25 - 0.15) * Math.PI), y * h3d, 2, 0, 2 * Math.PI);
+        ctx.closePath();
+        ctx.fill();
+    }
 
     ctx.restore();
 
@@ -166,19 +192,19 @@ function show() {
         drawPlayer();
     }
 
-    let player_i = (0|player.x) + (0|player.y);
-    let player_dia = 0|player.x - player.y;
+    let player_i = (0 | player.x) + (0 | player.y);
+    let player_dia = 0 | player.x - player.y;
     let check = false;
     for (let i = 0; i < width + height; i++) {
         for (let j = i < height ? 0 : i - height + 1; j < (i < width ? i + 1 : width); j++) {
-            if (data[i-j][j] == 0) continue;
+            if (data[i - j][j] == 0) continue;
 
             let x = height - (i - j) + j;
-            let y = - width - height + (i-j) + j;
-            let d = data[i-j][j];
+            let y = - width - height + (i - j) + j;
+            let d = data[i - j][j];
 
             // 플레이어 출력 체크
-            if (check && player.z < d && 
+            if (check && player.z < d &&
                 (player_dia >= 2 * j - i - 2 && player_dia <= 2 * j - i + 1)) {
                 showPlayer();
                 check = false;
@@ -217,7 +243,7 @@ function show() {
             ctx.fill();
             ctx.stroke();
         }
-        
+
         if (player_i == i) check = true;
     }
 
@@ -293,14 +319,14 @@ function initData() {
         [29, 30, 31, 32, 33, 34, 35, 36, 19, 2],
         [28, 27, 26, 25, 24, 23, 22, 21, 20, 1],
     ];
-    /**
+    /**/
     data = [
         [1, 1, 1, 1, 1, 1, 1, 1, 3, 2],
-        [1, 1, 1, 1, 1, 1, 1, 1, 3, 1],
-        [1, 1, 1, 1, 1, 1, 1, 1, 3, 1],
-        [1, 1, 1, 1, 1, 1, 1, 1, 3, 1],
-        [1, 1, 1, 1, 1, 1, 1, 1, 3, 1],
-        [1, 1, 1, 1, 1, 1, 1, 1, 3, 1],
+        [1, 1, 1, 1, 1, 1, 1, 1, 4, 1],
+        [1, 1, 1, 1, 1, 1, 1, 1, 4, 1],
+        [1, 1, 1, 1, 1, 1, 1, 1, 4, 1],
+        [1, 1, 1, 1, 1, 1, 1, 1, 4, 1],
+        [1, 1, 1, 1, 1, 1, 1, 1, 4, 1],
         [1, 1, 1, 1, 1, 1, 1, 1, 3, 1],
         [1, 1, 1, 1, 1, 1, 1, 1, 3, 1],
         [1, 1, 1, 1, 1, 1, 1, 1, 3, 1],
@@ -315,13 +341,22 @@ function initData() {
     player.x = width - 0.5;
     player.y = height - 0.5;
     player.z = data[height - 1][width - 1];
-    player.th = - Math.PI / 4;
+    player.th = Math.PI / 4;
     player.zv = 0;
 
     see = {};
     see.x = player.x;
     see.y = player.y;
     see.z = player.z;
+
+    display.queue = [];
+
+    // 플레이어의 기본 모션
+    display.queue.push(new DisplayEffect(40, (i) => {
+        display.player_k = Math.cos(Math.PI * display.queue[i].cnt / 20) / 20 + 0.35;
+        if (display.queue[i].cnt == 1)
+            display.queue[i].cnt = 40;
+    }));
 }
 
 /**
@@ -339,8 +374,7 @@ function limiter(x, min, max) {
 /**
  * 플레이어 위치 조절
  */
-function movePlayer()
-{
+function movePlayer() {
     let dx = 0, dy = 0;
     let min, max;
     let ind;
@@ -375,10 +409,26 @@ function movePlayer()
 
     if (dx || dy) player.th = Math.PI * ((dx == 1 && dy == 0) ? 0 : dy * (-dx - 2) + 4) / 4;
 
-    if (player.zv == 0 && keystat[' '])
-        player.zv = 0.55;
+    if (!player.isJumped && keystat[' ']) {
+        player.isJumped = true;
 
-    if (player.zv || player.z > data[0 | player.y][0 | player.x]) {
+        // 점프 모션
+        display.queue.push(new DisplayEffect(10, (i) => {
+            display.player_k = -0.1 * Math.cos(((10 - display.queue[i].cnt) / 9) * Math.PI) + 0.3;
+
+            if (display.queue[i].cnt == 10)
+                player.zv = 0.55;
+            if (display.queue[i].cnt == 1)
+                display.queue[i].cnt = 2;
+
+            if (!player.isJumped) {
+                display.queue[i].cnt = 0;
+                display.queue[0].cnt = 40;
+            }
+        }));
+    }
+
+    if (player.isJumped || player.z > data[0 | player.y][0 | player.x] + player_height) {
         player.z += player.zv;
         player.zv -= 0.1;
     }
@@ -386,6 +436,7 @@ function movePlayer()
     if (player.z < data[0 | player.y][0 | player.x] + player_height) {
         player.z = data[0 | player.y][0 | player.x] + player_height;
         player.zv = 0;
+        player.isJumped = false;
     }
 
     if (player.z <= player_height) {
@@ -395,16 +446,65 @@ function movePlayer()
         player.z = data[height - 1][width - 1];
         player.th = - Math.PI / 4;
         player.zv = 0;
+        player.isJumped = false;
     }
 }
 
 /**
  * 시야 위치 조절
  */
-function moveSee()
-{
+function moveSee() {
     for (let i in see)
-        see[i] = (1-see_inert)*see[i] + see_inert*player[i];
+        see[i] = (1 - see_inert) * see[i] + see_inert * player[i];
+}
+
+/**
+ * 여러 디스플레이 이펙트의 정의
+ * @param {number} cnt 특정 틱 뒤에 이펙트 종료
+ * @param {function} active 매 틱 실행되는 행동 (인자 1개는 display.queue 내의 index 값)
+ */
+function DisplayEffect(cnt, active) {
+    this.cnt = cnt;
+    this.active = active;
+}
+
+/**
+ * 매 틱마다 이펙트를 처리
+ */
+function checkDisplay() {
+    for (let i = 0; i < display.queue.length; i++) {
+        display.queue[i].active(i);
+        if (--display.queue[i].cnt <= 0)
+            display.queue.splice(i--, 1);
+    }
+}
+
+// Test ZONE
+let test = [];
+
+function copyObj(o) {
+    if (typeof o != "object") return o;
+
+    let r = o.constructor();
+    for (let i in o)
+        r[i] = copyObj(o[i]);
+
+    return r;
+}
+
+function isSame(o1, o2) {
+    if (typeof o1 != typeof o2) return false;
+    if (typeof o1 != "object") return o1 == o2;
+
+    for (let i in o1)
+        if (o1[i] != o2[i])
+            return false;
+
+    for (let i in o2)
+        if (o1[i] != o2[i])
+            return false;
+
+    return true;
 }
 
 /**
@@ -414,6 +514,11 @@ function proc() {
     movePlayer();
     moveSee();
     show();
+    checkDisplay();
 
+    /*Test ZONE*/
+    let t = copyObj(0);
+    if (!test.length || !isSame(test[test.length - 1], t))
+        test.push(t);
     return;
 }
