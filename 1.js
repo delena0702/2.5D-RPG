@@ -20,6 +20,7 @@ const player_height = 0.2;
 const prad2d = 8;
 const prad3d = 50 * player_rad;
 const pheadrad3d = 12;
+const sharad3d = 10;
 
 const p_move = 0.15;
 const xycheck = 1;
@@ -30,7 +31,7 @@ let keystat = {};
 let data;
 let width, height;
 
-let objs = [];
+let objs;
 let player;
 
 let display = {};
@@ -166,18 +167,32 @@ function initData() {
     width = data[0].length;
     height = data.length;
 
-    player = {};
-    player.type = 1;
-    player.x = width - 0.5;
-    player.y = height - 0.5;
-    player.z = data[height - 1][width - 1];
-    player.th = Math.PI / 4;
+    objs = [];
+    player = new EntityObject(draw2DPlayer, draw3DPlayer, movePlayer, () => { },
+        1, 1, width - 0.5, height - 0.5, data[height - 1][width - 1],
+        player_rad, player_height);
     player.vz = 0;
-    player.jump = false;
-    player.cnt = 100;
-    player.move = movePlayer;
-
     objs.push(player);
+    objs.push(new EntityObject((x, y, i) => {
+        ctx.save();
+        ctx.fillStyle = "#000000";
+        ctx.beginPath();
+        ctx.arc((x) * w2d, (y) * h2d, 10, 0, 2 * Math.PI);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+    }, (x, y, i) => {
+        drawShadow(objs[i].x, objs[i].y);
+        ctx.save();
+        ctx.fillStyle = "#00ffff";
+        ctx.beginPath();
+        ctx.arc((x) * w3d, (y) * h3d, 10, 0, 2 * Math.PI);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+    }, (i) => { objs[i].x += 0.03; return false }, () => { },
+        1, 100, 1.5, 1.5, data[1][1] + 0.2,
+        0.2, 0.2));
 
     see = {};
     see.x = player.x;
@@ -195,9 +210,30 @@ function initData() {
 }
 
 /**
+ * 그림자 출력
+ * @param {number} x 
+ * @param {number} y 
+ */
+function drawShadow(x, y) {
+    let px3d = height - y + x;
+    let ky3d = - width - height + y + x - 2 * data[0 | y][0 | x];
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.fillStyle = "#00000044";
+    ctx.arc(px3d * w3d, ky3d * h3d, sharad3d, 0, 2 * Math.PI);
+    ctx.fill();
+    ctx.restore();
+}
+
+/**
  * player의 커서 함수
  */
 function draw3DPlayer() {
+    // 그림자
+    drawShadow(player.x, player.y);
+
+    // 플레이어
     ctx.save();
     ctx.strokeStyle = "#000000";
     ctx.lineWidth = 2;
@@ -246,6 +282,27 @@ function draw3DPlayer() {
 }
 
 /**
+ * player의 커서 함수
+ */
+function draw2DPlayer() {
+    let px2d = height + player.x - player.y;
+    let py2d = - width - height + player.x + player.y;
+
+    ctx.beginPath();
+    ctx.fillStyle = "#00ffff";
+    ctx.moveTo(px2d * w2d, py2d * h2d);
+    ctx.lineTo(px2d * w2d + Math.cos(player.th - Math.PI / 2) * prad2d,
+        py2d * h2d + Math.sin(player.th - Math.PI / 2) * prad2d);
+    ctx.lineTo(px2d * w2d + Math.cos(player.th + Math.PI / 4) * prad2d,
+        py2d * h2d + Math.sin(player.th + Math.PI / 4) * prad2d);
+    ctx.lineTo(px2d * w2d + Math.cos(player.th + Math.PI) * prad2d,
+        py2d * h2d + Math.sin(player.th + Math.PI) * prad2d);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+}
+
+/**
  * 화면 출력
  */
 function show() {
@@ -287,21 +344,13 @@ function show2D() {
         }
     }
 
-    let px2d = height + player.x - player.y;
-    let py2d = - width - height + player.x + player.y;
+    for (let i = objs.length - 1; i >= 0; i--) {
+        let o = objs[i];
+        let x = height + o.x - o.y;
+        let y = - width - height + o.x + o.y;
+        o.draw2D(x, y, i);
+    }
 
-    ctx.beginPath();
-    ctx.fillStyle = "#00ffff";
-    ctx.moveTo(px2d * w2d, py2d * h2d);
-    ctx.lineTo(px2d * w2d + Math.cos(player.th - Math.PI / 2) * prad2d,
-        py2d * h2d + Math.sin(player.th - Math.PI / 2) * prad2d);
-    ctx.lineTo(px2d * w2d + Math.cos(player.th + Math.PI / 4) * prad2d,
-        py2d * h2d + Math.sin(player.th + Math.PI / 4) * prad2d);
-    ctx.lineTo(px2d * w2d + Math.cos(player.th + Math.PI) * prad2d,
-        py2d * h2d + Math.sin(player.th + Math.PI) * prad2d);
-    ctx.closePath();
-    ctx.fill();
-    ctx.stroke();
     ctx.restore();
 }
 
@@ -311,27 +360,18 @@ function show2D() {
 function show3D() {
     setContext(2);
 
-    function showPlayer() {
-        let px3d = height - player.y + player.x;
-        // let py3d = - width - height + player.y + player.x - 2 * player.z;
-        // let ply3d = - width - height + player.y + player.x - 2 * (player.z - player_height);
-        // let phy3d = - width - height + player.y + player.x - 2 * (player.z + player_height);
-        let ky3d = - width - height + player.y + player.x - 2 * data[0 | player.y][0 | player.x];
+    let entity_check = [];
 
-        // 그림자
-        ctx.save();
-        ctx.beginPath();
-        ctx.fillStyle = "#00000044";
-        ctx.arc(px3d * w3d, ky3d * h3d, prad3d, 0, 2 * Math.PI);
-        ctx.fill();
-        ctx.restore();
-
-        draw3DPlayer();
+    for (let i = 0; i < objs.length; i++) {
+        let o = objs[i];
+        entity_check.push({});
+        entity_check[i].x = height + (o.x) - (o.y);
+        entity_check[i].y = - width - height + (o.x) + (o.y) - 2 * (o.z);
+        entity_check[i].i = (0 | o.x) + (0 | o.y);
+        entity_check[i].dia = 0 | o.x - o.y;
+        entity_check[i].check = false;
     }
 
-    let player_i = (0 | player.x) + (0 | player.y);
-    let player_dia = 0 | player.x - player.y;
-    let check = false;
     for (let i = 0; i < width + height; i++) {
         for (let j = i < height ? 0 : i - height + 1; j < (i < width ? i + 1 : width); j++) {
             if (data[i - j][j] == 0) continue;
@@ -340,11 +380,16 @@ function show3D() {
             let y = - width - height + (i - j) + j;
             let d = data[i - j][j];
 
-            // 플레이어 출력 체크
-            if (check && player.z < d &&
-                (player_dia >= 2 * j - i - 2 && player_dia <= 2 * j - i + 1)) {
-                showPlayer();
-                check = false;
+            // 엔티티 출력 체크
+            for (let k = entity_check.length - 1; k >= 0; k--) {
+                let o = objs[k];
+                let e = entity_check[k];
+                console.log();
+                if (e.check && o.z < d &&
+                    (e.dia >= 2 * j - i - 2 && e.dia <= 2 * j - i + 1)) {
+                    o.draw3D(e.x, e.y, k);
+                    e.check = false;
+                }
             }
 
             // 위
@@ -381,21 +426,23 @@ function show3D() {
             ctx.stroke();
         }
 
-        if (player_i == i) check = true;
+        for (let j = 0; j < entity_check.length; j++)
+            if (entity_check[j].i == i)
+                entity_check[j].check = true;
     }
 
-    if (check) showPlayer();
+    for (let i = 0; i < entity_check.length; i++)
+        if (entity_check[i].check)
+            objs[i].draw3D(entity_check[i].x, entity_check[i].y, i);
 }
 
 /**
  * Objs을 전부 1틱 뒤의 상황으로 움직임
  */
 function moveObjs() {
-    for (let i = 0; i < objs.length; i++) {
-        objs[i].move();
-        if (--objs[i].cnt < 0)
+    for (let i = 0; i < objs.length; i++)
+        if (objs[i].move(i) && --objs[i].cnt < 0)
             objs.splice(i--, 1);
-    }
 }
 
 /**
@@ -475,8 +522,6 @@ function movePlayer() {
         player.vz = 0;
         player.jump = false;
     }
-
-    player.cnt = 1;
 }
 
 /**
@@ -495,6 +540,34 @@ function moveSee() {
 function DisplayEffect(cnt, active) {
     this.cnt = cnt;
     this.active = active;
+}
+
+/**
+ * objs 배열 내의 값들 정의
+ * @param {function} draw2D 2D 그리기
+ * @param {function} draw3D 3D 그리기
+ * @param {function} move 이동시 사용 함수
+ * @param {function} attack 공격 판정 함수
+ * @param {number} x 
+ * @param {number} y 
+ * @param {number} z 
+ * @param {number} r 반경
+ * @param {number} h 높이
+ */
+function EntityObject(draw2D, draw3D, move, attack, type, cnt, x, y, z, r, h) {
+    this.type = type;
+    this.draw2D = draw2D;
+    this.draw3D = draw3D;
+    this.move = move;
+    this.attack = attack;
+    this.x = x;
+    this.y = y;
+    this.z = z;
+    this.r = r;
+    this.h = h;
+    this.th = Math.PI / 4;
+    this.jump = false;
+    this.cnt = cnt;
 }
 
 /**
