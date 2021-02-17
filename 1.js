@@ -19,11 +19,8 @@ const player_rad = 0.2;
 const player_height = 0.2;
 const prad2d = 8;
 const prad3d = 50 * player_rad;
-const pheadrad3d = 12;
 const sharad3d = 10;
-
-const p_move = 0.15;
-const xycheck = 1;
+const player_gmove = 0.15;
 
 const usekey = ['w', 'a', 's', 'd', ' '];
 let keystat = {};
@@ -169,8 +166,8 @@ function initData() {
 
     objs = [];
     player = new EntityObject(draw2DPlayer, draw3DPlayer, movePlayer, () => { },
-        1, 1, width - 0.5, height - 0.5, data[height - 1][width - 1],
-        player_rad, player_height);
+        2, -1, player_gmove, width - 0.5, height - 0.5, data[height - 1][width - 1],
+        player_rad, player_height, () => { }, () => { return true; });
     player.vz = 0;
     objs.push(player);
     objs.push(new EntityObject((x, y, i) => {
@@ -190,9 +187,9 @@ function initData() {
         ctx.closePath();
         ctx.fill();
         ctx.restore();
-    }, (i) => { objs[i].x += 0.03; return false }, () => { },
-        1, 100, 1.5, 1.5, data[1][1] + 0.2,
-        0.2, 0.2));
+    }, movePlayer, () => { },
+        -2, -1, 0.1, 1.5, 1.5, data[1][1] + 0.2,
+        0.2, 0.2, () => { }, makeDefaultCanMove(1.5, 1.5, 10)));
 
     see = {};
     see.x = player.x;
@@ -441,87 +438,108 @@ function show3D() {
  */
 function moveObjs() {
     for (let i = 0; i < objs.length; i++)
-        if (objs[i].move(i) && --objs[i].cnt < 0)
+        if (moveobj(i) && --objs[i].cnt < 0)
             objs.splice(i--, 1);
 }
 
 /**
  * 플레이어 위치 조절
  */
-function movePlayer() {
-    let dx = 0, dy = 0;
+function movePlayer(i) {
+    let o = objs[i];
+    let r = { x: 0, y: 0 };
+
+    if (keystat.w) { r.x--; r.y--; }
+    if (keystat.a) { r.x--; r.y++; }
+    if (keystat.s) { r.x++; r.y++; }
+    if (keystat.d) { r.x++; r.y--; }
+    
+    r.x = limiter(r.x, -1, 1);
+    r.y = limiter(r.y, -1, 1);
+
+    if (!o.jump && keystat[' ']) {
+        o.jump = true;
+
+        // 점프 모션
+        if (i == 0)
+            display.queue.push(new DisplayEffect(10, (i) => {
+                display.player_k = -0.1 * Math.cos(((10 - display.queue[i].cnt) / 9) * Math.PI) + 0.3;
+
+                if (display.queue[i].cnt == 10)
+                    player.vz = 0.55;
+                if (display.queue[i].cnt == 1)
+                    display.queue[i].cnt = 2;
+
+                if (!player.jump) {
+                    display.queue[i].cnt = 0;
+                    display.queue[0].cnt = 40;
+                }
+            }));
+        else
+            o.vz = 0.55;
+    }
+
+    return r;
+}
+
+function makeDefaultmove(i) {
+    let r = { x: 1, y: 0 };
+    return r;
+}
+
+function moveobj(i) {
+    let o = objs[i];
+    let d = o.move(i);
+
+    let xycheck = 0 | o.gmove + 1;
     let min, max;
     let ind;
 
-    if (keystat.w) { dx--; dy--; }
-    if (keystat.a) { dx--; dy++; }
-    if (keystat.s) { dx++; dy++; }
-    if (keystat.d) { dx++; dy--; }
-
-    dx = limiter(dx, -1, 1);
-    dy = limiter(dy, -1, 1);
-
-    for (ind = 0; (ind < xycheck) && ((0 | player.x - ind) > 0); ind++)
-        if (player.z < data[0 | player.y][0 | player.x - ind - 1])
+    for (ind = 0; (ind < xycheck) && ((0 | o.x - ind) > 0); ind++)
+        if (o.z < data[0 | o.y][0 | o.x - ind - 1])
             break;
-    min = limiter((0 | player.x - ind) + player_rad, 0, width - 0.01);
-    for (ind = 0; (ind < xycheck) && ((0 | player.x + ind + 1) < width); ind++)
-        if (player.z < data[0 | player.y][0 | player.x + ind + 1])
+    min = limiter((0 | o.x - ind) + o.gmove, 0, width - 0.01);
+    for (ind = 0; (ind < xycheck) && ((0 | o.x + ind + 1) < width); ind++)
+        if (o.z < data[0 | o.y][0 | o.x + ind + 1])
             break;
-    max = limiter((0 | player.x + ind + 1) - player_rad, 0, width - 0.01);
-    player.x = limiter(player.x + p_move * dx, min, max);
+    max = limiter((0 | o.x + ind + 1) - o.gmove, 0, width - 0.01);
+    o.x = limiter(o.x + o.gmove * d.x, min, max);
 
-    for (ind = 0; (ind < xycheck) && ((0 | player.y - ind) > 0); ind++)
-        if (player.z < data[0 | player.y - ind - 1][0 | player.x])
+    for (ind = 0; (ind < xycheck) && ((0 | o.y - ind) > 0); ind++)
+        if (o.z < data[0 | o.y - ind - 1][0 | o.x])
             break;
-    min = limiter((0 | player.y - ind) + player_rad, 0, height - 0.01);
-    for (ind = 0; (ind < xycheck) && ((0 | player.y + ind + 1) < height); ind++)
-        if (player.z < data[0 | player.y + ind + 1][0 | player.x])
+    min = limiter((0 | o.y - ind) + o.gmove, 0, height - 0.01);
+    for (ind = 0; (ind < xycheck) && ((0 | o.y + ind + 1) < height); ind++)
+        if (o.z < data[0 | o.y + ind + 1][0 | o.x])
             break;
-    max = limiter((0 | player.y + ind + 1) - player_rad, 0, height - 0.01);
-    player.y = limiter(player.y + p_move * dy, min, max);
+    max = limiter((0 | o.y + ind + 1) - o.gmove, 0, height - 0.01);
+    o.y = limiter(o.y + o.gmove * d.y, min, max);
 
-    if (dx || dy) player.th = Math.PI * ((dx == 1 && dy == 0) ? 0 : dy * (-dx - 2) + 4) / 4;
+    if (d.x || d.y) o.th = Math.PI * ((d.x == 1 && d.y == 0) ? 0 : d.y * (-d.x - 2) + 4) / 4;
 
-    if (!player.jump && keystat[' ']) {
-        player.jump = true;
-
-        // 점프 모션
-        display.queue.push(new DisplayEffect(10, (i) => {
-            display.player_k = -0.1 * Math.cos(((10 - display.queue[i].cnt) / 9) * Math.PI) + 0.3;
-
-            if (display.queue[i].cnt == 10)
-                player.vz = 0.55;
-            if (display.queue[i].cnt == 1)
-                display.queue[i].cnt = 2;
-
-            if (!player.jump) {
-                display.queue[i].cnt = 0;
-                display.queue[0].cnt = 40;
-            }
-        }));
+    if (o.jump || o.z > data[0 | o.y][0 | o.x] + o.h) {
+        o.z += o.vz;
+        o.vz -= 0.1;
     }
 
-    if (player.jump || player.z > data[0 | player.y][0 | player.x] + player_height) {
-        player.z += player.vz;
-        player.vz -= 0.1;
+    if (o.z < data[0 | o.y][0 | o.x] + o.h) {
+        o.z = data[0 | o.y][0 | o.x] + o.h;
+        o.vz = 0;
+        o.jump = false;
     }
 
-    if (player.z < data[0 | player.y][0 | player.x] + player_height) {
-        player.z = data[0 | player.y][0 | player.x] + player_height;
-        player.vz = 0;
-        player.jump = false;
-    }
-
-    if (player.z <= player_height) {
+    if (o.z <= o.h) {
         console.log("떨어짐");
-        player.x = width - 0.5;
-        player.y = height - 0.5;
-        player.z = data[height - 1][width - 1];
-        player.th = - Math.PI / 4;
-        player.vz = 0;
-        player.jump = false;
+        o.x = width - 0.5;
+        o.y = height - 0.5;
+        o.z = data[height - 1][width - 1];
+        o.th = - Math.PI / 4;
+        o.vz = 0;
+        o.jump = false;
     }
+
+    if (o.cnt < 0) return false;
+    return true;
 }
 
 /**
@@ -544,9 +562,9 @@ function DisplayEffect(cnt, active) {
 
 /**
  * objs 배열 내의 값들 정의
- * @param {function} draw2D 2D 그리기
- * @param {function} draw3D 3D 그리기
- * @param {function} move 이동시 사용 함수
+ * @param {function} draw2D 2D 그리기 (x,y,i)
+ * @param {function} draw3D 3D 그리기 (x,y,i)
+ * @param {function} move 이동시 사용 함수 (i)
  * @param {function} attack 공격 판정 함수
  * @param {number} x 
  * @param {number} y 
@@ -554,20 +572,27 @@ function DisplayEffect(cnt, active) {
  * @param {number} r 반경
  * @param {number} h 높이
  */
-function EntityObject(draw2D, draw3D, move, attack, type, cnt, x, y, z, r, h) {
-    this.type = type;
+function EntityObject(draw2D, draw3D, move, attack, type, cnt, gmove, x, y, z, r, h, inScan, canMove) {
     this.draw2D = draw2D;
     this.draw3D = draw3D;
     this.move = move;
     this.attack = attack;
+
+    this.type = type;
+    this.cnt = cnt;
+    this.gmove = gmove;
+
     this.x = x;
     this.y = y;
     this.z = z;
+    this.vz = 0;
     this.r = r;
     this.h = h;
     this.th = Math.PI / 4;
     this.jump = false;
-    this.cnt = cnt;
+
+    this.inScan = inScan;
+    this.canMove = canMove;
 }
 
 /**
@@ -579,6 +604,10 @@ function checkDisplay() {
         if (--display.queue[i].cnt <= 0)
             display.queue.splice(i--, 1);
     }
+}
+
+function makeDefaultCanMove(x1, y1, r) {
+    return (x, y) => { return (x - x1) * (x - x1) + (y - y1) * (y - y1) <= r * r; }
 }
 
 // Test ZONE
