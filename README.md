@@ -70,3 +70,11 @@ _TODO : 정리중..._
   - _TODO : objs 범위 기능 구현 필요_
   - _TODO : objs AI 구현 필요_
   - _TODO : 적을 귀엽게 만들자_
+
+* 02.21(일)
+  - EnemyObject 객체 체계화
+  - hp라는 개념이 생김
+  - hit & attack 체계 갖추기
+  - _TODO : objs 범위 기능 구현 필요_
+  - _TODO : 스테이터스 시각화 필요_
+  - _TODO : 마법 기능 구현 필요_
