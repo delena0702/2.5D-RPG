@@ -482,7 +482,47 @@ function movePlayer(i) {
  * 임시
  */
 function makeDefaultmove(i) {
-    let r = { x: 1, y: 0 };
+    const d_data = [
+        [0, 0],
+        [0, 0],
+        [0, 0],
+        [0, 0],
+        [0, 0]
+    ];
+
+    let d = [];
+    for (let i=0; i<height; i++) {
+        d.push([]);
+        for (let j=0; j<width; j++)
+            d[i].push({ dir: -1, len: 0 });
+    }
+
+    let ep = objs[i].pos;
+    let pp = player.pos;
+
+    function _setBoard(x, y, d, l) {
+        d[y][x].dir = 5 - d;
+        d[y][x].len = l + 1;
+        if (x == (0 | ep.x) && y == (0 | ep.y)) return true;
+
+        for (let i=1; i<=4; i++) {
+            let dx = d_data[0][0];
+            let dy = d_data[0][1];
+            
+            if ((x+dx) < 0 || (x+dx) >= width ||
+                (y+dy) < 0 || (y+dy) >= height) continue;  
+            if (data[y+dy][x+dx] - data[y][x] >= -1) continue;
+            if (d[y][x].dir != -1) continue;
+
+            if (_setBoard(x + dx, y + dy, i, l + 1)) return true;
+        }
+
+        return false;
+    }
+
+    _setBoard(0 | pp.x, 0 | pp.y, 5, 0);
+
+    let r = { x: 0, y: 0 };
     return r;
 }
 

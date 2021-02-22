@@ -66,8 +66,8 @@ _TODO : 정리중..._
 
 * 02.17(수)
   - objs 충돌 판정 만들기
-  - _TODO : hit 체계 갖추기_
-  - _TODO : objs 범위 기능 구현 필요_
+  - ~TODO : hit 체계 갖추기~
+  - ~TODO : objs 범위 기능 구현 필요~
   - _TODO : objs AI 구현 필요_
   - _TODO : 적을 귀엽게 만들자_
 
@@ -78,3 +78,7 @@ _TODO : 정리중..._
   - _TODO : objs 범위 기능 구현 필요_
   - _TODO : 스테이터스 시각화 필요_
   - _TODO : 마법 기능 구현 필요_
+
+* 02.21(일)
+  - objs AI 개발 중
+  - _TODO : OFFLINE : AI 알고리즘 제작_
