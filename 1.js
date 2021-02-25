@@ -482,48 +482,65 @@ function movePlayer(i) {
  * 임시
  */
 function makeDefaultmove(i) {
-    const d_data = [
-        [0, 0],
-        [0, 0],
-        [0, 0],
-        [0, 0],
-        [0, 0]
+    let d_data = [
+        [0, -1],
+        [-1, 0],
+        [1, 0],
+        [0, 1]
     ];
-
-    let d = [];
-    for (let i=0; i<height; i++) {
-        d.push([]);
-        for (let j=0; j<width; j++)
-            d[i].push({ dir: -1, len: 0 });
-    }
 
     let ep = objs[i].pos;
     let pp = player.pos;
 
-    function _setBoard(x, y, d, l) {
-        d[y][x].dir = 5 - d;
-        d[y][x].len = l + 1;
-        if (x == (0 | ep.x) && y == (0 | ep.y)) return true;
+    let check = {};
+    let queue = [width * (0 | pp.y) + (0 | pp.x)];
+    let res = 0;
+    
+    check[queue[0]] = 1;
 
-        for (let i=1; i<=4; i++) {
-            let dx = d_data[0][0];
-            let dy = d_data[0][1];
+    LOOP:
+    while (queue.length) {
+        let p = queue.shift();
+        
+        let x = p % width;
+        let y = 0 | p / width;
+
+        for (let i = 0; i < 4; i++) {
             
-            if ((x+dx) < 0 || (x+dx) >= width ||
-                (y+dy) < 0 || (y+dy) >= height) continue;  
-            if (data[y+dy][x+dx] - data[y][x] >= -1) continue;
-            if (d[y][x].dir != -1) continue;
+            if (res && check[p] == res) {
+                    break LOOP;
+            }
 
-            if (_setBoard(x + dx, y + dy, i, l + 1)) return true;
+            let nx = x + d_data[i][0];
+            let ny = y + d_data[i][1];
+
+            if ((nx < 0) || (nx >= width) || (ny < 0) || (ny >= height)) continue;
+
+            if (!check[width * ny + nx] && data[y][x] <= data[ny][nx] + 1) {
+                queue.push(width * ny + nx);
+                check[width * ny + nx] = check[p] + 1;
+
+                if ((0|ep.x) == nx && (0|ep.y) == ny)
+                    res = check[width * ny + nx];   
+            }
         }
-
-        return false;
     }
 
-    _setBoard(0 | pp.x, 0 | pp.y, 5, 0);
+    let d = [];
+    for (let i=0;i<height; i++) {
+        d.push([]);
+        for (let j=0;j<width; j++) {
+            d[i].push(check[width * i + j]);
+        }
+    }
+    console.log(d);
 
-    let r = { x: 0, y: 0 };
-    return r;
+    return { x: 0, y: 0, j: false };
+    
+    if (!ep.jump) {
+        ep.jump = true;
+        ep.vz = 0.55;
+    }
 }
 
 /**
@@ -738,7 +755,7 @@ function makePlayer() {
 
 function makeEnemy() {
     let pos = new Position(1.5, 1.5, data[1][1],
-        0.2, 0.2, player_v);
+        0.2, 0.2, 0.1);
     let att = new Attribute(-2, new Magic(), 10, 10);
     let func = new Callbacks((x, y, i) => {//2D
         ctx.save();
@@ -758,7 +775,7 @@ function makeEnemy() {
         ctx.fill();
         ctx.restore();
     },
-        movePlayer, (a, h) => { return 1; }, () => { },
+    movePlayer, (a, h) => { return 1; }, () => { },
         () => { return false; }, () => { return true; });
     return new EntityObject(pos, att, func, -1);
 }
