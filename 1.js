@@ -443,7 +443,7 @@ function moveObjs() {
  */
 function movePlayer(i) {
     let o = objs[i];
-    let r = { x: 0, y: 0 };
+    let r = { x: 0, y: 0, j: 0 };
 
     if (keystat.w) { r.x--; r.y--; }
     if (keystat.a) { r.x--; r.y++; }
@@ -457,7 +457,7 @@ function movePlayer(i) {
         o.pos.jump = true;
 
         // 점프 모션
-        if (i == 0)
+        if (player == objs[i])
             display.queue.push(new DisplayEffect(10, (i) => {
                 display.player_k = -0.1 * Math.cos(((10 - display.queue[i].cnt) / 9) * Math.PI) + 0.3;
 
@@ -479,68 +479,25 @@ function movePlayer(i) {
 }
 
 /**
- * 임시
+ * Test
  */
 function makeDefaultmove(i) {
-    let d_data = [
-        [0, -1],
-        [-1, 0],
-        [1, 0],
-        [0, 1]
-    ];
-
     let ep = objs[i].pos;
     let pp = player.pos;
 
-    let check = {};
-    let queue = [width * (0 | pp.y) + (0 | pp.x)];
-    let res = 0;
-    
-    check[queue[0]] = 1;
-
-    LOOP:
-    while (queue.length) {
-        let p = queue.shift();
-        
-        let x = p % width;
-        let y = 0 | p / width;
-
-        for (let i = 0; i < 4; i++) {
-            
-            if (res && check[p] == res) {
-                    break LOOP;
-            }
-
-            let nx = x + d_data[i][0];
-            let ny = y + d_data[i][1];
-
-            if ((nx < 0) || (nx >= width) || (ny < 0) || (ny >= height)) continue;
-
-            if (!check[width * ny + nx] && data[y][x] <= data[ny][nx] + 1) {
-                queue.push(width * ny + nx);
-                check[width * ny + nx] = check[p] + 1;
-
-                if ((0|ep.x) == nx && (0|ep.y) == ny)
-                    res = check[width * ny + nx];   
-            }
-        }
+    if (!objs[i].func.inScan(i, pp.x, pp.y, pp.z)) {
+        return { x: 0, y: 0, j: false };
     }
 
-    let d = [];
-    for (let i=0;i<height; i++) {
-        d.push([]);
-        for (let j=0;j<width; j++) {
-            d[i].push(check[width * i + j]);
-        }
-    }
-    console.log(d);
+    let dx = limiter((pp.x - ep.x)/ep.v, -1, 1);
+    let dy = limiter((pp.y - ep.y)/ep.v, -1, 1);
+    let dj = false;
 
-    return { x: 0, y: 0, j: false };
-    
-    if (!ep.jump) {
-        ep.jump = true;
-        ep.vz = 0.55;
-    }
+    if (ep.x + 2 * ep.v * dx >= 0 && ep.x + 2 * ep.v * dx < width &&
+        ep.y + 2 * ep.v * dy >= 0 && ep.y + 2 * ep.v * dy < height)
+        dj = (ep.z - ep.h) < data[0 | ep.y + 2 * ep.v * dy][0 | ep.x + 2 * ep.v * dx];
+
+    return { x: dx, y: dy, j: dj };
 }
 
 /**
@@ -554,6 +511,7 @@ function moveobj(i) {
     let xycheck = 0 | o.pos.v + 1;
     let min, max;
     let ind;
+    let xx = o.pos.x, yy = o.pos.y;
 
     for (ind = 0; (ind < xycheck) && ((0 | o.pos.x - ind) > 0); ind++)
         if (o.pos.z < data[0 | o.pos.y][0 | o.pos.x - ind - 1])
@@ -575,7 +533,17 @@ function moveobj(i) {
     max = limiter((0 | o.pos.y + ind + 1) - o.pos.v, 0, height - 0.01);
     o.pos.y = limiter(o.pos.y + o.pos.v * d.y, min, max);
 
+    if (!o.func.canMove(i, o.pos.x, o.pos.y, o.pos.z)) {
+        o.pos.x = xx;
+        o.pos.y = yy;
+    }
+
     if (d.x || d.y) o.pos.th = Math.PI * ((d.x == 1 && d.y == 0) ? 0 : d.y * (-d.x - 2) + 4) / 4;
+
+    if (!o.pos.jump && d.j) {
+        o.pos.jump = true;
+        o.pos.vz = 0.55;
+    }
 
     if (o.pos.jump || o.pos.z > data[0 | o.pos.y][0 | o.pos.x] + o.pos.h) {
         o.pos.z += o.pos.vz;
@@ -746,7 +714,7 @@ function Magic() {
 function makePlayer() {
     let pos = new Position(width - 0.5, height - 0.5, data[height - 1][width - 1],
         player_rad, player_height, player_v);
-    let att = new Attribute(2, new Magic(), 10, 10);
+    let att = new Attribute(2, new Magic(), 1000, 10);
     let func = new Callbacks(draw2DPlayer, draw3DPlayer,
         movePlayer, () => { return 0; }, (a, h, d) => { player.att.hp -= d; },
         () => { return false; }, () => { return true; });
@@ -775,9 +743,23 @@ function makeEnemy() {
         ctx.fill();
         ctx.restore();
     },
-    movePlayer, (a, h) => { return 1; }, () => { },
-        () => { return false; }, () => { return true; });
+    makeDefaultmove, (a, h) => { return 1; }, () => { },
+        makeDefaultCircleArea(5), makeDefaultStaticCircleArea(7, pos.x, pos.y));
     return new EntityObject(pos, att, func, -1);
+}
+
+function makeDefaultCircleArea(r)
+{
+    return (i,x,y,z)=>{
+        return (objs[i].pos.x - x)**2 + (objs[i].pos.y - y)**2 <= r*r;
+    };
+}
+
+function makeDefaultStaticCircleArea(r, x, y)
+{
+    return (i,xx,yy,z)=>{
+        return (x - xx)**2 + (y - yy)**2 <= r*r;
+    };
 }
 
 /**
